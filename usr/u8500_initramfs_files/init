@@ -17,7 +17,17 @@ busybox rm init
 busybox mount -t proc proc /proc
 busybox mount -t sysfs sysfs /sys
 
-load_image=/ramdisk/boot.cpio
+if test -f /stage1/boot.cpio.gz ; then
+	load_image=/stage1/boot.cpio
+fi
+
+if test -f /stage1/boot.cpio ; then
+	load_image=/stage1/boot.cpio
+fi
+
+if test -f /ramdisk/boot.cpio ; then
+	load_image=/ramdisk/boot.cpio
+fi
 lvm=/ramdisk/lvm.cpio
 
 busybox insmod /ramdisk/modules/startup_reason.ko
@@ -68,7 +78,18 @@ if busybox grep -q bootmode=2 /proc/cmdline ; then
 		# if there are errors while unpacking recovery, fallback to /ramdisk/recovery.cpio
 		if [ "$(busybox cat /ramdisk/recovery.check | busybox grep -c 'gzip')" != 0 ] ; then
 			busybox echo "recovery on /dev/block/mmcblk0p15 appears to be corrupted, falling back to ramdisk"
-			load_image=/ramdisk/recovery.cpio
+                        if test -f /stage1/recovery.cpio; then
+				load_image=/stage1/recovery.cpio
+			fi
+                        if test -f /stage1/recovery.cpio.gz ; then
+				load_image=/stage1/recovery.cpio
+			fi
+			if test -f /ramdisk/recovery.cpio ; then
+				load_image=/ramdisk/recovery.cpio
+			fi
+			if test -f /ramdisk/recovery.cpio.gz ; then
+				load_image=/ramdisk/recovery.cpio
+			fi
 		fi
 	else
 		busybox echo "recovery not found on /dev/block/mmcblk0p15, loading from ramdisk"
@@ -81,13 +102,6 @@ if busybox grep -q bootmode=2 /proc/cmdline ; then
 
 	busybox mount -t j4fs /dev/block/mmcblk0p1 /mnt/.lfs
 	busybox sh /ramdisk/00recovery
-fi
-
-if busybox grep -q lpm_boot=1 /proc/cmdline ; then
-       if test -f /ramdisk/charger.cpio ; then
-           load_image=/ramdisk/charger.cpio
-       fi
-       busybox echo 1 > /sys/class/power_supply/battery/batt_lp_charging
 fi
 
 if test -f ${load_image} ; then
@@ -117,6 +131,6 @@ busybox sh /ramdisk/10monkey_patch
 busybox umount /sys
 busybox umount /proc
 busybox date >>/ramdisk/last_boot.txt
-#busybox rm -fr /stage1
+busybox rm -fr /stage1
 export PATH="${_PATH}"
 exec /init
